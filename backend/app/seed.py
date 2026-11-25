@@ -76,7 +76,58 @@ CREATE TABLE IF NOT EXISTS 结栏批次 (
   汇总数 INTEGER NOT NULL DEFAULT 0,
   报告 TEXT NOT NULL DEFAULT '{}'
 );
+CREATE TABLE IF NOT EXISTS 空栏封印 (
+  封印编号 TEXT PRIMARY KEY,
+  栏号 TEXT NOT NULL UNIQUE,
+  批次编号 TEXT NOT NULL UNIQUE,
+  指纹 TEXT NOT NULL,
+  证据根 TEXT NOT NULL,
+  时刻 TEXT NOT NULL,
+  水位前 TEXT NOT NULL DEFAULT '',
+  水位后 TEXT NOT NULL DEFAULT '',
+  形态 TEXT NOT NULL DEFAULT '甲-切流账册'
+);
+CREATE TABLE IF NOT EXISTS 空栏封印归档 (
+  归档编号 TEXT PRIMARY KEY,
+  栏号 TEXT NOT NULL UNIQUE,
+  批次编号 TEXT NOT NULL UNIQUE,
+  指纹 TEXT NOT NULL,
+  证据根 TEXT NOT NULL DEFAULT '',
+  占位编号 TEXT NOT NULL DEFAULT '',
+  时刻 TEXT NOT NULL,
+  形态 TEXT NOT NULL DEFAULT '乙-双写两轨'
+);
+CREATE TABLE IF NOT EXISTS 栏水位账 (
+  票号 TEXT PRIMARY KEY,
+  栏号 TEXT NOT NULL UNIQUE,
+  前号 TEXT NOT NULL,
+  后号 TEXT NOT NULL,
+  空栏 INTEGER NOT NULL DEFAULT 0,
+  空封指纹 TEXT NOT NULL DEFAULT '',
+  汇总组数 INTEGER NOT NULL DEFAULT 0,
+  缓冲消耗 INTEGER NOT NULL DEFAULT 0,
+  时刻 TEXT NOT NULL,
+  状态 TEXT NOT NULL DEFAULT '已推进'
+);
+CREATE TRIGGER IF NOT EXISTS 禁写已封栏
+BEFORE INSERT ON 入栏缓冲
+WHEN EXISTS (SELECT 1 FROM 栏水位账 WHERE 栏号 = NEW.栏号)
+BEGIN
+  SELECT RAISE(ABORT, '该栏已封印，禁止写入入栏缓冲');
+END;
 """
+
+_补列 = (
+    ("栏贯验", "结栏票号", "TEXT NOT NULL DEFAULT ''"),
+    ("栏贯验", "空封核对", "TEXT NOT NULL DEFAULT ''"),
+)
+
+
+def _迁移列(conn) -> None:
+    for 表, 列, 型 in _补列:
+        已有 = {r["name"] for r in conn.execute(f"PRAGMA table_info({表})").fetchall()}
+        if 列 not in 已有:
+            conn.execute(f"ALTER TABLE {表} ADD COLUMN {列} {型}")
 
 
 def 此刻() -> str:
@@ -86,6 +137,7 @@ def 此刻() -> str:
 def 初始化库() -> None:
     conn = 连接()
     conn.executescript(建表)
+    _迁移列(conn)
     if conn.execute("SELECT COUNT(*) AS c FROM 栏规").fetchone()["c"] == 0:
         for k, v in {
             "当前栏号": "B-demo",

@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>栏规 · 探栏</title>
   <link rel="stylesheet" href="/styles.css"/>
-  <script src="/common.js">
+  <script src="/common.js"></script>
+  <script>
     async function 刷栏规页() {
       const 规 = await 探栏.getJSON("/api/栏规");
       const box = document.getElementById("栏规表") || document.getElementById("表");
@@ -63,6 +64,27 @@
       <pre class="回执 上距12" id="栏规回执">改门槛只影响后续装载</pre>
     </section>
     <section class="卷">
+      <h2>空栏封印策略 · 结栏水位编排</h2>
+      <div class="只读框">
+        当前择定工程形态：<b class="铜字">甲 · 切流账册</b> —— 空结在 <code>空栏封印</code> 账册落下正式记录与空封指纹，虽无汇总行，账册可回看；贯验改读空封集。<br/>
+        裁决只读口（形态中立，亦核对乙·汇总占位+只读归档）：<code>GET /api/空栏封印/裁决</code>。
+      </div>
+      <div class="双栏 上距8">
+        <div class="只读框">
+          <b>同票与原子</b>
+          <p class="说明">结栏批次、空封指纹、栏水位账与“当前栏号”推进在同一把编排锁、同一个 BEGIN IMMEDIATE 事务内同成同败；空封指纹与水位对账同票。</p>
+          <b>互斥与写闸</b>
+          <p class="说明">结栏/装载共用编排锁，同栏并发重结按水位票同票回放，不双成功；已封印栏由数据库触发器禁写缓冲，空结撞上补装时补装在锁内落入推进后的新栏，不漏封、不成片。</p>
+        </div>
+        <div class="只读框">
+          <b>当前水位</b>
+          <pre class="回执" id="水位预览">加载中…</pre>
+          <b>最近水位票</b>
+          <div class="表绕"><table><thead><tr><th>栏号</th><th>前→后</th><th>空</th><th>空封指纹</th></tr></thead><tbody id="水位票表"></tbody></table></div>
+        </div>
+      </div>
+    </section>
+    <section class="卷">
       <h2>夹具预检</h2>
       <div class="表绕"><table><thead><tr><th>夹具</th><th>报文数</th><th>可装</th><th>摘要</th></tr></thead><tbody id="夹具预检表"></tbody></table></div>
     </section>
@@ -75,6 +97,23 @@
       document.getElementById("规").textContent = JSON.stringify(await 探栏.getJSON("/api/栏规"), null, 2);
       const s = await 探栏.getJSON("/api/空桩");
       document.getElementById("空桩").textContent = "空桩 " + s.条数 + "：" + (s.空桩 || []).join(" · ");
+      try {
+        const p = await 探栏.getJSON("/api/结栏/预览");
+        document.getElementById("水位预览").textContent = JSON.stringify({
+          当前栏: p["栏号"], 在栏: p["在栏"], 空栏将封: p["空栏将封"], 下一栏号: p["下一栏号"]
+        }, null, 2);
+        const ws = await 探栏.getJSON("/api/水位账");
+        const tb = document.getElementById("水位票表");
+        if (!ws.length) tb.innerHTML = `<tr><td colspan="4">${探栏.空态("尚无水位票。")}</td></tr>`;
+        for (const w of ws.slice(0, 8)) {
+          tb.appendChild(探栏.行(
+            `<td>${探栏.安全文本(w.栏号)}</td>` +
+            `<td>${探栏.安全文本(w.前号)}→${探栏.安全文本(w.后号)}</td>` +
+            `<td>${w.空栏 ? 探栏.徽章("空封","ok") : "实结"}</td>` +
+            `<td class="铜字">${探栏.安全文本(w.空封指纹 ? 探栏.短指纹(w.空封指纹) : "—")}</td>`
+          ));
+        }
+      } catch (e) {}
     })();
     </script>
 

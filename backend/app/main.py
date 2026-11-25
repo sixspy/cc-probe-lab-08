@@ -1,7 +1,7 @@
 from pathlib import Path
 from quart import Quart, jsonify, request, send_from_directory, redirect
 from app import seed
-from app.services import 目录, 装载, 结栏, 贯验, 夹具, 统计, 说明
+from app.services import 目录, 装载, 结栏, 贯验, 夹具, 统计, 说明, 空栏封印, 水位
 
 _STATIC = Path(__file__).resolve().parent / "static"
 app = Quart(__name__)
@@ -94,12 +94,35 @@ async def api_夹具装载(name: str):
 
 @app.post("/api/结栏/跑")
 async def api_结栏():
-    return jsonify(结栏.结当前栏())
+    body = await request.get_json(force=True, silent=True) or {}
+    指定栏号 = body.get("栏号") if isinstance(body, dict) else None
+    return jsonify(结栏.结当前栏(栏号=指定栏号))
 
 
 @app.get("/api/结栏/预览")
 async def api_结栏预览():
     return jsonify(结栏.预览结栏())
+
+
+@app.get("/api/空栏封印")
+async def api_空栏封印列表():
+    return jsonify(空栏封印.空封集())
+
+
+@app.get("/api/空栏封印/裁决")
+async def api_空栏封印裁决():
+    # 新增的空栏封印裁决只读接口（不写库）
+    return jsonify(空栏封印.裁决())
+
+
+@app.get("/api/空栏封印裁决")
+async def api_空栏封印裁决别名():
+    return jsonify(空栏封印.裁决())
+
+
+@app.get("/api/水位账")
+async def api_水位账():
+    return jsonify(水位.账册列表())
 
 
 @app.get("/api/栏贯验/快照")
@@ -162,11 +185,20 @@ async def api_结栏摘要():
 async def api_空桩():
     root = Path(__file__).resolve().parent / "modules"
     out = []
+    实装 = []
     if root.is_dir():
+        import importlib
         for p in sorted(root.iterdir()):
             if p.is_dir() and p.name != "__pycache__" and (p / "__init__.py").is_file():
                 out.append(p.name)
-    return jsonify({"空桩": out, "条数": len(out)})
+                try:
+                    mod = importlib.import_module(f"app.modules.{p.name}")
+                    d = mod.describe() if hasattr(mod, "describe") else {}
+                    if d.get("实装"):
+                        实装.append(p.name)
+                except Exception:
+                    pass
+    return jsonify({"空桩": out, "条数": len(out), "实装": 实装})
 
 
 @app.get("/<path:name>")

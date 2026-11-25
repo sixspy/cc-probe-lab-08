@@ -23,6 +23,42 @@
       <div class="工具"><button class="按钮 青" id="结">结当前栏</button></div>
       <div class="表绕"><table><thead><tr><th>汇总编号</th><th>栏号</th><th>站点</th><th>指标</th><th>报文数</th><th>均值</th></tr></thead><tbody id="表"></tbody></table></div>
     </section>
+
+    <section class="卷">
+      <h2>空栏封印账册 <span class="说明">（择定甲·切流账册：空结无汇总行，凭此账册指纹回看）</span></h2>
+      <div id="空封裁决条">空封裁决加载中…</div>
+      <div class="表绕 上距8"><table><thead><tr>
+        <th>栏号</th><th>同票票号</th><th>空封指纹</th><th>水位推进</th><th>回读</th><th>形态</th><th>时刻</th>
+      </tr></thead><tbody id="空封表"></tbody></table></div>
+    </section>
+    <script>
+    async function 刷空封() {
+      const 裁 = await 探栏.挂载空封裁决("空封裁决条");
+      const tb = document.getElementById("空封表");
+      if (!tb) return;
+      tb.innerHTML = "";
+      const rows = (裁 && 裁["明细"]) || [];
+      if (!rows.length) {
+        tb.innerHTML = `<tr><td colspan="7">${探栏.空态("尚无空栏封印。空缓冲结栏后，这里可回看空封指纹。")}</td></tr>`;
+        return;
+      }
+      for (const x of rows) {
+        const 水 = x["水位前"] || x["水位后"]
+          ? `${探栏.安全文本(x["水位前"] || "")} → ${探栏.安全文本(x["水位后"] || "")}`
+          : (x["水位同票"] ? "水位同票" : "水位断票");
+        tb.appendChild(探栏.行(
+          `<td>${探栏.安全文本(x.栏号)}</td>` +
+          `<td>${探栏.安全文本(x["票号"] || x["批次编号"] || "")}</td>` +
+          `<td class="铜字">${探栏.安全文本(x["空封指纹"] ? 探栏.短指纹(x["空封指纹"]) : "—")}</td>` +
+          `<td>${水}</td>` +
+          `<td>${x["可回读"] ? 探栏.徽章("可回读","ok") : 探栏.空封状态徽章(x["裁决"])}</td>` +
+          `<td>${探栏.安全文本((x["形态"] || "").split("-")[0] || "—")}</td>` +
+          `<td>${探栏.安全文本(x["时刻"] || "")}</td>`
+        ));
+      }
+    }
+    刷空封();
+    </script>
     <script>
     async function 刷() {
       const rows = await 探栏.getJSON("/api/站点汇总账");
@@ -32,7 +68,7 @@
         tb.appendChild(探栏.行(`<td>${探栏.安全文本(r.汇总编号)}</td><td>${探栏.安全文本(r.栏号)}</td><td>${探栏.安全文本(r.站点键)}</td><td>${探栏.安全文本(r.指标键)}</td><td>${r.报文数}</td><td>${r.均值}</td>`));
       }
     }
-    document.getElementById("结").onclick = async () => { await 探栏.postJSON("/api/结栏/跑"); await 刷(); };
+    document.getElementById("结").onclick = async () => { await 探栏.postJSON("/api/结栏/跑"); await 刷(); if (window.刷空封) await 刷空封(); };
     刷();
     </script>
 

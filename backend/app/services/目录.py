@@ -112,6 +112,8 @@ def 概览() -> dict:
             "在栏": conn.execute("SELECT COUNT(*) AS c FROM 入栏缓冲 WHERE 命运='在栏'").fetchone()["c"],
             "站点汇总": conn.execute("SELECT COUNT(*) AS c FROM 站点汇总账").fetchone()["c"],
             "坏点": conn.execute("SELECT COUNT(*) AS c FROM 坏点匣").fetchone()["c"],
+            "空栏封印": conn.execute("SELECT COUNT(*) AS c FROM 空栏封印").fetchone()["c"],
+            "栏水位票": conn.execute("SELECT COUNT(*) AS c FROM 栏水位账").fetchone()["c"],
             "栏规": 栏规(),
         }
     finally:
@@ -138,7 +140,11 @@ def 结栏批次列表(限制: int = 50) -> list[dict]:
         return [
             dict(r)
             for r in conn.execute(
-                "SELECT 编号,栏号,时刻,汇总数 FROM 结栏批次 ORDER BY 时刻 DESC LIMIT ?",
+                """SELECT b.编号,b.栏号,b.时刻,b.汇总数,
+                          w.空栏 AS 空栏票, w.空封指纹, w.后号 AS 水位后号, w.状态
+                   FROM 结栏批次 b
+                   LEFT JOIN 栏水位账 w ON w.票号 = b.编号
+                   ORDER BY b.时刻 DESC, b.编号 DESC LIMIT ?""",
                 (限制,),
             ).fetchall()
         ]

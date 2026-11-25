@@ -34,10 +34,18 @@
       <div class="工具">
         <button class="按钮" id="灌入栏">灌入栏成汇总样例</button>
         <button class="按钮 次" id="灌坏点">灌坏点样例</button>
-        <button class="按钮 青" id="结栏">结当前栏</button>
+        <button class="按钮 青" id="结栏">结当前栏（空结留封印）</button>
         <button class="按钮 次" id="贯验">跑栏贯验</button>
       </div>
       <pre class="回执" id="回执">操作回执会显示在这里</pre>
+    </section>
+    <section class="卷" id="空封卡卷">
+      <h2>空栏封印卡片 · 切流账册指纹</h2>
+      <div id="空封裁决条">空封裁决加载中…</div>
+      <div class="表绕 上距8"><table><thead><tr>
+        <th>栏号</th><th>同票票号</th><th>空封指纹</th><th>水位推进</th><th>回读裁决</th><th>时刻</th>
+      </tr></thead><tbody id="空封表"></tbody></table></div>
+      <p class="说明 上距8">空缓冲结栏无汇总行，但此卡可回看空封指纹；封印落库与栏号推进同成同败，已封栏写入有写闸与互斥。</p>
     </section>
     <section class="卷">
       <h2>最近装载批次</h2>
@@ -45,7 +53,7 @@
     </section>
     <section class="卷">
       <h2>最近结栏批次</h2>
-      <div class="表绕"><table><thead><tr><th>编号</th><th>栏号</th><th>时刻</th><th>汇总数</th></tr></thead><tbody id="结栏批次表"></tbody></table></div>
+      <div class="表绕"><table><thead><tr><th>编号</th><th>栏号</th><th>时刻</th><th>汇总数</th><th>空封/水位</th></tr></thead><tbody id="结栏批次表"></tbody></table></div>
     </section>
     <section class="卷">
       <h2>命运词典</h2>
@@ -59,7 +67,39 @@
       const loads = await 探栏.getJSON("/api/装载批次");
       探栏.渲染批次表(document.getElementById("装载批次表"), loads, ["编号","时刻","入流","入栏","坏点"]);
       const closes = await 探栏.getJSON("/api/结栏批次");
-      探栏.渲染批次表(document.getElementById("结栏批次表"), closes, ["编号","栏号","时刻","汇总数"]);
+      const ctb = document.getElementById("结栏批次表");
+      ctb.innerHTML = "";
+      if (!closes.length) {
+        ctb.innerHTML = `<tr><td colspan="5">${探栏.空态("尚无批次。空缓冲也可直接结栏，会留空栏封印。")}</td></tr>`;
+      }
+      for (const r of closes) {
+        const 封 = r["空栏票"] === 1
+          ? `${探栏.徽章("空封", "ok")} ${探栏.短指纹(r["空封指纹"])}<br/><span class="说明">→ ${探栏.安全文本(r["水位后号"] || "")}</span>`
+          : `成片汇总 → ${探栏.安全文本(r["水位后号"] || "")}`;
+        ctb.appendChild(探栏.行(
+          `<td>${探栏.安全文本(r.编号)}</td><td>${探栏.安全文本(r.栏号)}</td>` +
+          `<td>${探栏.安全文本(r.时刻)}</td><td>${r.汇总数}</td><td>${封}</td>`
+        ));
+      }
+      const 裁 = await 探栏.挂载空封裁决("空封裁决条");
+      const stb = document.getElementById("空封表");
+      stb.innerHTML = "";
+      const 明细 = (裁 && 裁["明细"]) || [];
+      if (!明细.length) {
+        stb.innerHTML = `<tr><td colspan="6">${探栏.空态("尚无空栏封印。空缓冲点“结当前栏”即留指纹。")}</td></tr>`;
+      }
+      for (const x of 明细) {
+        const 水 = x["水位前"] || x["水位后"]
+          ? `${探栏.安全文本(x["水位前"] || "")} → ${探栏.安全文本(x["水位后"] || "")}`
+          : (x["水位同票"] ? "同票" : "—");
+        stb.appendChild(探栏.行(
+          `<td>${探栏.安全文本(x.栏号)}</td>` +
+          `<td>${探栏.安全文本(x["票号"] || x["批次编号"] || "")}</td>` +
+          `<td class="铜字">${探栏.安全文本(探栏.短指纹(x["空封指纹"] || x["指纹"]))}</td>` +
+          `<td>${水}</td><td>${探栏.空封状态徽章(x["裁决"])}</td>` +
+          `<td>${探栏.安全文本(x["时刻"] || "")}</td>`
+        ));
+      }
       const info = await 探栏.getJSON("/api/仓情");
       探栏.填命运字典(document.getElementById("命运词典"), info["命运词典"] || {});
     }

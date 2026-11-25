@@ -20,10 +20,32 @@
     </header>
 
     <section class="卷">
+      <h2>封栏写闸 · 空封栏</h2>
+      <div id="封栏闸" class="说明">写闸状态加载中…</div>
+      <div class="工具 上距8" id="封栏票条"></div>
+    </section>
+
+    <section class="卷">
       <div class="表绕"><table><thead><tr><th>报文编号</th><th>站点</th><th>指标</th><th>读数</th><th>栏号</th><th>命运</th></tr></thead><tbody id="表"></tbody></table></div>
     </section>
     <script>
     (async () => {
+      try {
+        const 裁 = await 探栏.getJSON("/api/空栏封印/裁决");
+        const 空封栏 = (裁["空封集"] || []).map((x) => x["栏号"]);
+        const 闸 = document.getElementById("封栏闸");
+        闸.innerHTML = `已封印栏由写闸触发器禁写缓冲；空结撞上补装时，补装在编排锁内落入推进后的当前新栏，不漏封、不成片。当前空封栏：<b class="铜字">${空封栏.length ? 空封栏.map(探栏.安全文本).join("、") : "无"}</b>。裁决：${裁["裁决对齐"] ? 探栏.徽章("相符·绿","ok") : 探栏.徽章("异常·红","warn")}`;
+        const 条 = document.getElementById("封栏票条");
+        for (const x of (裁["明细"] || []).slice(0, 6)) {
+          const s = document.createElement("span");
+          s.className = "只读框";
+          s.style.padding = "6px 10px";
+          s.innerHTML = `<b>${探栏.安全文本(x.栏号)}</b> ${探栏.空封状态徽章(x["裁决"])} <span class="铜字">${探栏.安全文本(探栏.短指纹(x["空封指纹"]))}</span>`;
+          条.appendChild(s);
+        }
+      } catch (e) {
+        document.getElementById("封栏闸").textContent = "写闸状态读取失败：" + e;
+      }
       const rows = await 探栏.getJSON("/api/入栏缓冲");
       const tb = document.getElementById("表");
       if (!rows.length) { tb.innerHTML = `<tr><td colspan="6">${探栏.空态("缓冲为空。")}</td></tr>`; return; }
